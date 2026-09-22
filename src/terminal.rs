@@ -4,12 +4,9 @@ use std::{
 };
 
 use crossterm::{
-    cursor::{Hide, MoveTo, Show},
+    cursor::{Hide, MoveTo},
     execute,
-    terminal::{
-        Clear, ClearType, EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode,
-        enable_raw_mode,
-    },
+    terminal::{Clear, ClearType, EnterAlternateScreen, disable_raw_mode, enable_raw_mode},
 };
 
 use crate::canvas::{Canvas, Style};
@@ -17,7 +14,8 @@ use crate::canvas::{Canvas, Style};
 const SYNC_START: &str = "\x1b[?2026h";
 const SYNC_END: &str = "\x1b[?2026l";
 const DISABLE_WRAP: &str = "\x1b[?7l";
-const ENABLE_WRAP: &str = "\x1b[?7h";
+const RESTORE_SCREEN: &str = "\x1b[?2026l\x1b[0m\x1b[?7h\x1b[?25h\x1b[?1049l";
+const RESTORE_INLINE: &str = "\x1b[?2026l\x1b[0m\x1b[?7h\x1b[?25h";
 
 pub struct TerminalSession {
     raw: bool,
@@ -42,6 +40,7 @@ impl TerminalSession {
         install_panic_cleanup();
         enable_raw_mode()?;
         session.raw = true;
+        session.alternate_screen = true;
 
         let mut stdout = io::stdout();
         execute!(
@@ -51,7 +50,6 @@ impl TerminalSession {
             Clear(ClearType::All),
             MoveTo(0, 0)
         )?;
-        session.alternate_screen = true;
         stdout.write_all(DISABLE_WRAP.as_bytes())?;
         stdout.flush()?;
         Ok(session)
@@ -74,12 +72,12 @@ fn install_panic_cleanup() {
 
 fn restore_terminal(alternate_screen: bool, raw: bool) {
     let mut stdout = io::stdout();
-    let _ = stdout.write_all(b"\x1b[0m");
-    let _ = stdout.write_all(ENABLE_WRAP.as_bytes());
-    let _ = execute!(stdout, Show);
-    if alternate_screen {
-        let _ = execute!(stdout, LeaveAlternateScreen);
-    }
+    let sequence = if alternate_screen {
+        RESTORE_SCREEN
+    } else {
+        RESTORE_INLINE
+    };
+    let _ = stdout.write_all(sequence.as_bytes());
     let _ = stdout.flush();
     if raw {
         let _ = disable_raw_mode();
@@ -186,5 +184,13 @@ mod tests {
         assert!(first.ends_with(SYNC_END.as_bytes()));
         assert!(second.len() < first.len());
         assert!(String::from_utf8(second).unwrap().contains('B'));
+    }
+
+    #[test]
+    fn restoration_ends_sync_output_before_leaving_the_screen() {
+        assert!(RESTORE_SCREEN.starts_with(SYNC_END));
+        assert!(RESTORE_SCREEN.ends_with("\x1b[?1049l"));
+        assert!(RESTORE_INLINE.starts_with(SYNC_END));
+        assert!(!RESTORE_INLINE.contains("?1049l"));
     }
 }

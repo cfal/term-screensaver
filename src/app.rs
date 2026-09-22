@@ -20,10 +20,10 @@ use crate::{
 };
 
 pub fn run(config: Config) -> io::Result<()> {
-    let _terminal = TerminalSession::enter()?;
     let shutdown = Arc::new(AtomicBool::new(false));
     signal_hook::flag::register(SIGINT, Arc::clone(&shutdown))?;
     signal_hook::flag::register(SIGTERM, Arc::clone(&shutdown))?;
+    let _terminal = TerminalSession::enter()?;
 
     let mut app = App::new(config);
     let mut renderer = Renderer::default();
