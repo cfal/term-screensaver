@@ -11,6 +11,19 @@ use crate::{
 };
 
 const GLYPH_SEQUENCE: &[u8] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+const CLOCK_HALF_WIDTH: f64 = 3.0;
+
+fn clock_points(text: &str) -> Vec<Vec3> {
+    let mut points = font::points(text);
+    let half_width = points.iter().map(|point| point.x.abs()).fold(0.0, f64::max);
+    if half_width > f64::EPSILON {
+        let normalization = CLOCK_HALF_WIDTH / half_width;
+        for point in &mut points {
+            *point = *point * normalization;
+        }
+    }
+    points
+}
 
 pub struct GlyphSpin {
     offset: usize,
@@ -135,8 +148,8 @@ impl Clock {
     }
 
     fn render_spin(&self, frame: &FrameContext, canvas: &mut Canvas, points: &[Vec3]) {
-        let scale = (f64::from(canvas.width()) * 0.065)
-            .min(f64::from(canvas.height()) * 0.55)
+        let scale = (f64::from(canvas.width()) * 0.22)
+            .min(f64::from(canvas.height()) * 2.2)
             .max(0.5);
         let angle_y = (frame.scene_seconds * self.speed + self.phase).sin() * 0.42;
         let angle_x = (frame.scene_seconds * self.speed * 0.63).sin() * 0.16;
@@ -159,8 +172,8 @@ impl Clock {
     }
 
     fn render_orbit(&self, frame: &FrameContext, canvas: &mut Canvas, points: &[Vec3]) {
-        let scale = (f64::from(canvas.width()) * 0.032)
-            .min(f64::from(canvas.height()) * 0.28)
+        let scale = (f64::from(canvas.width()) * 0.11)
+            .min(f64::from(canvas.height()) * 1.1)
             .max(0.35);
         for panel in 0..3 {
             let angle = frame.scene_seconds * self.speed * (0.75 + panel as f64 * 0.08)
@@ -186,8 +199,8 @@ impl Clock {
     }
 
     fn render_ribbon(&self, frame: &FrameContext, canvas: &mut Canvas, points: &[Vec3]) {
-        let scale = (f64::from(canvas.width()) * 0.06)
-            .min(f64::from(canvas.height()) * 0.52)
+        let scale = (f64::from(canvas.width()) * 0.24)
+            .min(f64::from(canvas.height()) * 2.2)
             .max(0.5);
         for (index, &point) in points.iter().enumerate() {
             let twist = frame.scene_seconds * self.speed + point.x * 0.12 + self.phase;
@@ -210,7 +223,7 @@ impl Clock {
 
 impl Animation for Clock {
     fn render(&mut self, frame: &FrameContext, canvas: &mut Canvas) {
-        let points = font::points(&Self::time_text(frame));
+        let points = clock_points(&Self::time_text(frame));
         match self.variant {
             ClockVariant::Spin => self.render_spin(frame, canvas, &points),
             ClockVariant::Orbit => self.render_orbit(frame, canvas, &points),
@@ -239,5 +252,80 @@ mod tests {
         assert_eq!(Clock::time_text(&frame(10, 0)), "10:00");
         assert_eq!(Clock::time_text(&frame(23, 59)), "23:59");
         assert_eq!(Clock::time_text(&frame(0, 0)), "00:00");
+    }
+
+    fn assert_on_screen(
+        point: Vec3,
+        width: u16,
+        height: u16,
+        scale: f64,
+        offset_x: i32,
+        offset_y: i32,
+    ) {
+        let projected = project(point, width, height, scale).expect("point crossed the camera");
+        assert!((0..i32::from(width)).contains(&(projected.x + offset_x)));
+        assert!((0..i32::from(height)).contains(&(projected.y + offset_y)));
+    }
+
+    #[test]
+    fn normalized_clock_stays_visible_during_spin() {
+        let clock = Clock::new(2);
+        assert!(matches!(clock.variant, ClockVariant::Spin));
+        let seconds = 8.884;
+        let width = 79;
+        let height = 24;
+        let points = clock_points("12:34");
+        let scale = (f64::from(width) * 0.22)
+            .min(f64::from(height) * 2.2)
+            .max(0.5);
+        let angle_y = (seconds * clock.speed + clock.phase).sin() * 0.42;
+        let angle_x = (seconds * clock.speed * 0.63).sin() * 0.16;
+
+        assert!(points.iter().all(|point| point.x.abs() <= CLOCK_HALF_WIDTH));
+        for point in points {
+            assert_on_screen(
+                point.rotate_x(angle_x).rotate_y(angle_y),
+                width,
+                height,
+                scale,
+                0,
+                0,
+            );
+        }
+    }
+
+    #[test]
+    fn orbit_and_ribbon_fit_a_common_terminal() {
+        let width = 79;
+        let height = 24;
+        let points = clock_points("23:59");
+        let orbit_scale = (f64::from(width) * 0.11)
+            .min(f64::from(height) * 1.1)
+            .max(0.35);
+        let ribbon_scale = (f64::from(width) * 0.24)
+            .min(f64::from(height) * 2.2)
+            .max(0.5);
+
+        for step in 0..72 {
+            let phase = f64::from(step) / 72.0 * TAU;
+            let offset_x = (phase.cos() * f64::from(width) * 0.28).round() as i32;
+            let offset_y = (phase.sin() * f64::from(height) * 0.24).round() as i32;
+            for &point in &points {
+                assert_on_screen(
+                    point.rotate_y(phase.sin() * 0.32).rotate_x(-0.08),
+                    width,
+                    height,
+                    orbit_scale,
+                    offset_x,
+                    offset_y,
+                );
+
+                let twist = phase + point.x * 0.12;
+                let twisted =
+                    Vec3::new(point.x, point.y * twist.cos(), point.y * twist.sin() * 0.72)
+                        .rotate_x(0.08);
+                assert_on_screen(twisted, width, height, ribbon_scale, 0, 0);
+            }
+        }
     }
 }

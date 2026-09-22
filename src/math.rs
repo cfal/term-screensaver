@@ -2,6 +2,8 @@ use std::ops::{Add, Mul, Sub};
 
 use crate::canvas::{Canvas, Style};
 
+const CAMERA_DISTANCE: f64 = 4.5;
+
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub struct Vec3 {
     pub x: f64,
@@ -94,8 +96,19 @@ pub struct Projected {
     pub inverse_depth: f64,
 }
 
+pub fn fitting_scale(width: u16, height: u16, radius: f64, fill: f64) -> f64 {
+    if !radius.is_finite() || radius <= 0.0 || radius >= CAMERA_DISTANCE - 0.2 {
+        return 0.0;
+    }
+    let fill = fill.clamp(0.0, 1.0);
+    let near = CAMERA_DISTANCE - radius;
+    let vertical = f64::from(height) * fill * 0.5 * near / radius;
+    let horizontal = f64::from(width) * fill * 0.25 * near / radius;
+    vertical.min(horizontal)
+}
+
 pub fn project(point: Vec3, width: u16, height: u16, scale: f64) -> Option<Projected> {
-    let denominator = 4.5 - point.z;
+    let denominator = CAMERA_DISTANCE - point.z;
     if !denominator.is_finite() || denominator <= 0.2 {
         return None;
     }
@@ -150,5 +163,23 @@ mod tests {
     fn projection_rejects_points_behind_camera() {
         assert!(project(Vec3::new(0.0, 0.0, 5.0), 80, 24, 20.0).is_none());
         assert!(project(Vec3::new(0.0, 0.0, 0.0), 80, 24, 20.0).is_some());
+    }
+
+    #[test]
+    fn fitting_scale_keeps_a_bounding_sphere_inside_the_viewport() {
+        let width = 79;
+        let height = 24;
+        let radius = 1.75;
+        let scale = fitting_scale(width, height, radius, 0.9);
+        for point in [
+            Vec3::new(radius, 0.0, radius),
+            Vec3::new(-radius, 0.0, radius),
+            Vec3::new(0.0, radius, radius),
+            Vec3::new(0.0, -radius, radius),
+        ] {
+            let projected = project(point, width, height, scale).unwrap();
+            assert!((0..i32::from(width)).contains(&projected.x));
+            assert!((0..i32::from(height)).contains(&projected.y));
+        }
     }
 }

@@ -5,8 +5,10 @@ use rand::Rng;
 use crate::{
     canvas::{Canvas, Rgb, Style},
     effects::{Animation, FrameContext, lerp_color, ramp, seeded_rng},
-    math::{Vec3, draw_projected_line, project},
+    math::{Vec3, draw_projected_line, fitting_scale, project},
 };
+
+const DONUT_BOUNDING_RADIUS: f64 = 1.75;
 
 pub struct Donut {
     samples: Vec<(Vec3, Vec3)>,
@@ -52,7 +54,7 @@ impl Animation for Donut {
         const ASCII: &[char] = &['.', ',', '-', '~', ':', ';', '=', '!', '*', '#', '$', '@'];
         const UNICODE: &[char] = &['·', '·', ':', '•', '+', '*', 'o', 'O', '0', '●', '▓', '@'];
         let glyphs = if frame.ascii { ASCII } else { UNICODE };
-        let scale = f64::from(canvas.width().min(canvas.height().saturating_mul(2))) * 0.9;
+        let scale = fitting_scale(canvas.width(), canvas.height(), DONUT_BOUNDING_RADIUS, 0.88);
         let angle_x = frame.scene_seconds * self.speed_x + 0.7;
         let angle_z = frame.scene_seconds * self.speed_z;
         let light = Vec3::new(-0.35, 0.45, 0.82).normalized();
@@ -167,6 +169,13 @@ impl Wireframe {
             Shape::Octahedron => (OCTAHEDRON_VERTICES, OCTAHEDRON_EDGES),
         }
     }
+
+    fn bounding_radius(&self) -> f64 {
+        match self.shape {
+            Shape::Cube => 3.0_f64.sqrt(),
+            Shape::Octahedron => 1.35,
+        }
+    }
 }
 
 impl Animation for Wireframe {
@@ -177,7 +186,12 @@ impl Animation for Wireframe {
             frame.scene_seconds * self.speed.y + self.phase.y,
             frame.scene_seconds * self.speed.z + self.phase.z,
         );
-        let scale = f64::from(canvas.width().min(canvas.height().saturating_mul(2))) * 1.05;
+        let scale = fitting_scale(
+            canvas.width(),
+            canvas.height(),
+            self.bounding_radius(),
+            0.84,
+        );
         let projected: Vec<_> = vertices
             .iter()
             .map(|vertex| {
@@ -235,6 +249,64 @@ impl Animation for Wireframe {
                     dim: false,
                 },
             );
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn assert_on_screen(point: Vec3, width: u16, height: u16, scale: f64) {
+        let projected = project(point, width, height, scale).expect("point crossed the camera");
+        assert!((0..i32::from(width)).contains(&projected.x));
+        assert!((0..i32::from(height)).contains(&projected.y));
+    }
+
+    #[test]
+    fn donut_samples_fit_common_terminal_sizes() {
+        let donut = Donut::new(91);
+        for (width, height) in [(79, 24), (119, 30), (39, 12)] {
+            let scale = fitting_scale(width, height, DONUT_BOUNDING_RADIUS, 0.88);
+            for seconds in [0.0, 2.5, 8.884, 31.0] {
+                let angle_x = seconds * donut.speed_x + 0.7;
+                let angle_z = seconds * donut.speed_z;
+                for &(point, _) in &donut.samples {
+                    assert_on_screen(
+                        point.rotate_x(angle_x).rotate_z(angle_z),
+                        width,
+                        height,
+                        scale,
+                    );
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn wireframe_vertices_fit_common_terminal_sizes() {
+        for shape in [Shape::Cube, Shape::Octahedron] {
+            let wireframe = Wireframe {
+                shape,
+                speed: Vec3::new(0.31, 0.43, -0.17),
+                phase: Vec3::new(0.2, 0.7, 0.4),
+                colors: [Rgb::default(), Rgb::default()],
+            };
+            let (vertices, _) = wireframe.geometry();
+            for (width, height) in [(79, 24), (119, 30), (39, 12)] {
+                let scale = fitting_scale(width, height, wireframe.bounding_radius(), 0.84);
+                for seconds in [0.0, 2.5, 8.884, 31.0] {
+                    let angles = wireframe.speed * seconds + wireframe.phase;
+                    for &vertex in vertices {
+                        assert_on_screen(
+                            vertex.rotate(angles.x, angles.y, angles.z),
+                            width,
+                            height,
+                            scale,
+                        );
+                    }
+                }
+            }
         }
     }
 }
