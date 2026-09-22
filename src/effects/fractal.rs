@@ -1,4 +1,4 @@
-use std::f64::consts::PI;
+use std::f64::consts::{PI, TAU};
 
 use rand::Rng;
 
@@ -20,6 +20,8 @@ const JULIA_CONSTANTS: &[(f64, f64)] = &[
     (0.285, 0.01),
     (-0.701_76, -0.3842),
 ];
+
+const ZOOM_CYCLE_SECONDS: f64 = 28.0;
 
 pub struct Fractal {
     julia: bool,
@@ -74,6 +76,11 @@ impl Fractal {
             lerp_color(self.palette[1], self.palette[2], (value - 0.55) / 0.45)
         }
     }
+
+    fn zoom(&self, scene_seconds: f64) -> f64 {
+        let cycle = (scene_seconds / ZOOM_CYCLE_SECONDS * TAU + self.phase).rem_euclid(TAU);
+        self.base_zoom * 1.7_f64.powf((1.0 - cycle.cos()) * 2.0)
+    }
 }
 
 impl Animation for Fractal {
@@ -84,10 +91,7 @@ impl Animation for Fractal {
         let width = f64::from(canvas.width().max(1));
         let height = f64::from(canvas.height().max(1));
         let aspect = width / (height * 2.0);
-        let zoom = self.base_zoom
-            * 1.7_f64.powf(
-                frame.scene_seconds * 0.14 + (frame.scene_seconds * 0.23 + self.phase).sin() * 0.22,
-            );
+        let zoom = self.zoom(frame.scene_seconds);
         let drift = if self.julia { 0.0 } else { 0.015 / zoom };
         let center_x = self.center.0 + (frame.scene_seconds * 0.21 + self.phase).cos() * drift;
         let center_y = self.center.1 + (frame.scene_seconds * 0.17 + self.phase).sin() * drift;
@@ -136,6 +140,48 @@ impl Animation for Fractal {
                         bold: value > 0.86,
                         dim: value < 0.14,
                     },
+                );
+            }
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::collections::BTreeSet;
+
+    use chrono::{Local, TimeZone};
+
+    use super::*;
+
+    fn frame(seconds: f64) -> FrameContext {
+        FrameContext {
+            scene_seconds: seconds,
+            wall_time: Local.with_ymd_and_hms(2026, 9, 22, 12, 34, 0).unwrap(),
+            ascii: true,
+            colored: false,
+        }
+    }
+
+    #[test]
+    fn zoom_repeats_without_growing_over_long_intervals() {
+        let fractal = Fractal::new(7);
+        let initial = fractal.zoom(13.25);
+        let repeated = fractal.zoom(13.25 + ZOOM_CYCLE_SECONDS * 100.0);
+        assert!((initial - repeated).abs() < 1e-12);
+    }
+
+    #[test]
+    fn late_frames_retain_fractal_detail() {
+        for seed in 0..12 {
+            let mut fractal = Fractal::new(seed);
+            for seconds in [600.0, 1_800.0, 3_599.0] {
+                let mut canvas = Canvas::new(79, 24);
+                fractal.render(&frame(seconds), &mut canvas);
+                let glyphs: BTreeSet<_> = canvas.cells().iter().map(|cell| cell.glyph).collect();
+                assert!(
+                    glyphs.len() >= 3,
+                    "seed {seed} became uniform at {seconds} seconds"
                 );
             }
         }
