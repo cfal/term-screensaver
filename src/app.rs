@@ -257,4 +257,18 @@ mod tests {
         assert_eq!(app.current_kind, EffectKind::Plasma);
         assert_ne!(app.scene_seed, first_seed);
     }
+
+    #[test]
+    fn shuffled_rotation_avoids_immediate_repeats() {
+        let mut app = App::new(Config {
+            seed: Some(17),
+            ..Config::default()
+        });
+        let mut previous = app.current_kind;
+        for _ in 0..EffectKind::ALL.len() * 3 {
+            app.next_scene();
+            assert_ne!(app.current_kind, previous);
+            previous = app.current_kind;
+        }
+    }
 }

@@ -2,6 +2,8 @@ mod fractal;
 mod orb;
 mod plasma;
 mod solids;
+mod starfield;
+mod text;
 
 use chrono::{DateTime, Local};
 use rand::{Rng, SeedableRng, rngs::StdRng};
@@ -16,6 +18,9 @@ pub enum EffectKind {
     Fractal,
     Donut,
     Wireframe,
+    Glyphs,
+    Clock,
+    Starfield,
     Plasma,
 }
 
@@ -25,6 +30,9 @@ impl EffectKind {
         Self::Fractal,
         Self::Donut,
         Self::Wireframe,
+        Self::Glyphs,
+        Self::Clock,
+        Self::Starfield,
         Self::Plasma,
     ];
 
@@ -34,6 +42,9 @@ impl EffectKind {
             Self::Fractal => "fractal",
             Self::Donut => "donut",
             Self::Wireframe => "wireframe",
+            Self::Glyphs => "glyphs",
+            Self::Clock => "clock",
+            Self::Starfield => "starfield",
             Self::Plasma => "plasma",
         }
     }
@@ -51,6 +62,9 @@ impl EffectKind {
             Self::Fractal => Box::new(fractal::Fractal::new(seed)),
             Self::Donut => Box::new(solids::Donut::new(seed)),
             Self::Wireframe => Box::new(solids::Wireframe::new(seed)),
+            Self::Glyphs => Box::new(text::GlyphSpin::new(seed)),
+            Self::Clock => Box::new(text::Clock::new(seed)),
+            Self::Starfield => Box::new(starfield::Starfield::new(seed)),
             Self::Plasma => Box::new(Plasma::new(seed)),
         }
     }
