@@ -46,6 +46,13 @@ fn clock_points(text: &str) -> Vec<Vec3> {
     points
 }
 
+fn clock_spin_scale(width: u16, height: u16) -> f64 {
+    let padded_height = height.saturating_sub(2);
+    (f64::from(width) * 0.22)
+        .min(f64::from(padded_height) * 2.2)
+        .max(0.5)
+}
+
 pub struct GlyphSpin {
     offset: usize,
     speed: f64,
@@ -158,9 +165,7 @@ impl Clock {
     }
 
     fn render_spin(&self, frame: &FrameContext, canvas: &mut Canvas, points: &[Vec3]) {
-        let scale = (f64::from(canvas.width()) * 0.22)
-            .min(f64::from(canvas.height()) * 2.2)
-            .max(0.5);
+        let scale = clock_spin_scale(canvas.width(), canvas.height());
         let angle_y = (frame.scene_seconds * self.speed + self.phase).sin() * 0.42;
         let angle_x = (frame.scene_seconds * self.speed * 0.63).sin() * 0.16;
         for (index, &point) in points.iter().enumerate() {
@@ -285,9 +290,7 @@ mod tests {
         let width = 79;
         let height = 24;
         let points = clock_points("12:34");
-        let scale = (f64::from(width) * 0.22)
-            .min(f64::from(height) * 2.2)
-            .max(0.5);
+        let scale = clock_spin_scale(width, height);
         let angle_y = (seconds * clock.speed + clock.phase).sin() * 0.42;
         let angle_x = (seconds * clock.speed * 0.63).sin() * 0.16;
 
@@ -301,6 +304,33 @@ mod tests {
                 0,
                 0,
             );
+        }
+    }
+
+    #[test]
+    fn spinning_clock_fits_a_wide_shallow_viewport() {
+        let clock = Clock::new(2);
+        assert!(matches!(clock.variant, ClockVariant::Spin));
+        let width = 119;
+        let height = 12;
+        let points = clock_points("11:11");
+        let scale = clock_spin_scale(width, height);
+        let cycle_seconds = TAU / clock.speed;
+
+        for step in 0..=720 {
+            let seconds = cycle_seconds * f64::from(step) / 720.0;
+            let angle_y = (seconds * clock.speed + clock.phase).sin() * 0.42;
+            let angle_x = (seconds * clock.speed * 0.63).sin() * 0.16;
+            for &point in &points {
+                assert_on_screen(
+                    point.rotate_x(angle_x).rotate_y(angle_y),
+                    width,
+                    height,
+                    scale,
+                    0,
+                    0,
+                );
+            }
         }
     }
 
