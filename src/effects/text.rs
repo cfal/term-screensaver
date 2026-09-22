@@ -7,11 +7,32 @@ use crate::{
     canvas::{Canvas, Rgb, Style},
     effects::{Animation, FrameContext, lerp_color, seeded_rng},
     font,
-    math::{Vec3, project},
+    math::{Vec3, fitting_scale, project},
 };
 
 const GLYPH_SEQUENCE: &[u8] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+const GLYPH_SOURCE_EXTENT: Vec3 = Vec3::new(2.18, 3.18, 0.12);
+const GLYPH_RADIUS: f64 = 1.25;
 const CLOCK_HALF_WIDTH: f64 = 3.0;
+
+fn glyph_points(glyph: char) -> Vec<(usize, Vec3)> {
+    const OFFSETS: &[Vec3] = &[
+        Vec3::new(-0.18, -0.18, -0.12),
+        Vec3::new(0.18, -0.18, -0.12),
+        Vec3::new(-0.18, 0.18, 0.12),
+        Vec3::new(0.18, 0.18, 0.12),
+    ];
+    let normalization = GLYPH_RADIUS / GLYPH_SOURCE_EXTENT.length();
+    font::points(&glyph.to_string())
+        .into_iter()
+        .enumerate()
+        .flat_map(|(index, base)| {
+            OFFSETS
+                .iter()
+                .map(move |&offset| (index, (base + offset) * normalization))
+        })
+        .collect()
+}
 
 fn clock_points(text: &str) -> Vec<Vec3> {
     let mut points = font::points(text);
@@ -53,41 +74,30 @@ impl Animation for GlyphSpin {
         let smooth = local * local * (3.0 - 2.0 * local);
         let angle_y = smooth * TAU;
         let angle_x = self.tilt + (local * PI).sin() * 0.18;
-        let scale = (f64::from(canvas.height()) * 0.58)
-            .min(f64::from(canvas.width()) * 0.32)
-            .max(1.0);
-        let base_points = font::points(&glyph.to_string());
+        let scale = fitting_scale(canvas.width(), canvas.height(), GLYPH_RADIUS, 0.86);
+        let points = glyph_points(glyph);
 
-        for (index, base) in base_points.into_iter().enumerate() {
-            for &(offset_x, offset_y, offset_z) in &[
-                (-0.18, -0.18, -0.12),
-                (0.18, -0.18, -0.12),
-                (-0.18, 0.18, 0.12),
-                (0.18, 0.18, 0.12),
-            ] {
-                let point = (base + Vec3::new(offset_x, offset_y, offset_z))
-                    .rotate_x(angle_x)
-                    .rotate_y(angle_y);
-                let Some(projected) = project(point, canvas.width(), canvas.height(), scale) else {
-                    continue;
-                };
-                let color_position = (index as f64 / 35.0 + point.z * 0.08).clamp(0.0, 1.0);
-                canvas.plot(
-                    projected.x,
-                    projected.y,
-                    projected.inverse_depth,
-                    glyph,
-                    Style {
-                        foreground: frame.color(lerp_color(
-                            self.colors[0],
-                            self.colors[1],
-                            color_position,
-                        )),
-                        bold: point.z > 0.0,
-                        dim: point.z < -0.1,
-                    },
-                );
-            }
+        for (index, point) in points {
+            let point = point.rotate_x(angle_x).rotate_y(angle_y);
+            let Some(projected) = project(point, canvas.width(), canvas.height(), scale) else {
+                continue;
+            };
+            let color_position = (index as f64 / 35.0 + point.z * 0.08).clamp(0.0, 1.0);
+            canvas.plot(
+                projected.x,
+                projected.y,
+                projected.inverse_depth,
+                glyph,
+                Style {
+                    foreground: frame.color(lerp_color(
+                        self.colors[0],
+                        self.colors[1],
+                        color_position,
+                    )),
+                    bold: point.z > 0.0,
+                    dim: point.z < -0.1,
+                },
+            );
         }
     }
 }
@@ -291,6 +301,36 @@ mod tests {
                 0,
                 0,
             );
+        }
+    }
+
+    #[test]
+    fn rotating_glyphs_fit_common_terminal_sizes() {
+        for glyph in GLYPH_SEQUENCE.iter().map(|&glyph| char::from(glyph)) {
+            let points = glyph_points(glyph);
+            assert!(
+                points
+                    .iter()
+                    .all(|(_, point)| point.length() <= GLYPH_RADIUS)
+            );
+            for (width, height) in [(79, 24), (39, 12)] {
+                let scale = fitting_scale(width, height, GLYPH_RADIUS, 0.86);
+                for step in 0..32 {
+                    let angle_y = f64::from(step) / 32.0 * TAU;
+                    for angle_x in [-0.4, 0.0, 0.4] {
+                        for &(_, point) in &points {
+                            assert_on_screen(
+                                point.rotate_x(angle_x).rotate_y(angle_y),
+                                width,
+                                height,
+                                scale,
+                                0,
+                                0,
+                            );
+                        }
+                    }
+                }
+            }
         }
     }
 
