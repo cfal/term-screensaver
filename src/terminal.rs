@@ -51,9 +51,9 @@ impl TerminalSession {
             Clear(ClearType::All),
             MoveTo(0, 0)
         )?;
+        session.alternate_screen = true;
         stdout.write_all(DISABLE_WRAP.as_bytes())?;
         stdout.flush()?;
-        session.alternate_screen = true;
         Ok(session)
     }
 }
