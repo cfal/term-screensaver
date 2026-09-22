@@ -88,13 +88,17 @@ impl App {
     pub fn new(config: Config) -> Self {
         let seed = config.seed.unwrap_or_else(random_seed);
         let mut rng = StdRng::seed_from_u64(seed);
-        let current_kind = config.effect.unwrap_or(EffectKind::Plasma);
+        let mut bag = EffectKind::ALL.to_vec();
+        bag.shuffle(&mut rng);
+        let current_kind = config
+            .effect
+            .unwrap_or_else(|| bag.pop().unwrap_or(EffectKind::Plasma));
         let scene_seed = rng.r#gen();
         let scene_colored = choose_color(config.color, &mut rng);
         Self {
             config,
             rng,
-            bag: Vec::new(),
+            bag,
             current_kind,
             animation: current_kind.create(scene_seed),
             scene_seed,
