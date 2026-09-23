@@ -1,6 +1,6 @@
 use std::{fmt, time::Duration};
 
-use crate::effects::EffectKind;
+use crate::{effects::EffectKind, profile::Profile};
 
 pub const HELP: &str = "\
 ascii-screensaver - procedural terminal animation\n\n\
@@ -10,6 +10,7 @@ Options:\n\
   --interval <SECONDS>         Seconds between scenes [default: 20]\n\
   --seed <INTEGER>             Reproducible random seed\n\
   --effect <NAME>              Stay within one animation family\n\
+  --profile <NAME>             Rotate within a group: all, 3d, time [default: all]\n\
   --color <auto|always|never>  Color policy [default: auto]\n\
   --ascii                      Use printable ASCII glyphs only\n\
   --list                       List animation families\n\
@@ -33,6 +34,7 @@ pub struct Config {
     pub interval: Duration,
     pub seed: Option<u64>,
     pub effect: Option<EffectKind>,
+    pub profile: Option<Profile>,
     pub color: ColorChoice,
     pub ascii: bool,
 }
@@ -44,9 +46,16 @@ impl Default for Config {
             interval: Duration::from_secs(20),
             seed: None,
             effect: None,
+            profile: None,
             color: ColorChoice::Auto,
             ascii: false,
         }
+    }
+}
+
+impl Config {
+    pub fn profile(&self) -> Profile {
+        self.profile.unwrap_or(Profile::All)
     }
 }
 
@@ -114,6 +123,15 @@ pub fn parse(args: impl IntoIterator<Item = String>) -> Result<Command, ParseErr
                     ))
                 })?);
             }
+            "--profile" => {
+                let value = value_for(&arg, &mut args)?;
+                config.profile = Some(Profile::from_name(&value).ok_or_else(|| {
+                    ParseError(format!(
+                        "unknown profile '{value}'; expected one of: {}",
+                        Profile::names().collect::<Vec<_>>().join(", ")
+                    ))
+                })?);
+            }
             "--color" => {
                 let value = value_for(&arg, &mut args)?;
                 config.color = match value.as_str() {
@@ -132,6 +150,12 @@ pub fn parse(args: impl IntoIterator<Item = String>) -> Result<Command, ParseErr
             }
             _ => return Err(ParseError(format!("unexpected argument '{arg}'"))),
         }
+    }
+
+    if config.effect.is_some() && config.profile.is_some() {
+        return Err(ParseError(
+            "--effect and --profile cannot be used together".into(),
+        ));
     }
 
     Ok(Command::Run(config))
@@ -175,6 +199,37 @@ mod tests {
         assert_eq!(config.effect, Some(EffectKind::Plasma));
         assert_eq!(config.color, ColorChoice::Never);
         assert!(config.ascii);
+    }
+
+    #[test]
+    fn parses_profile() {
+        let Command::Run(config) = parse(strings(&["--profile", "3d"])).unwrap() else {
+            panic!("expected run command");
+        };
+        assert_eq!(config.profile, Some(Profile::ThreeD));
+        assert_eq!(config.profile(), Profile::ThreeD);
+    }
+
+    #[test]
+    fn rejects_unknown_profile() {
+        assert_eq!(
+            parse(strings(&["--profile", "nope"]))
+                .err()
+                .unwrap()
+                .to_string(),
+            "unknown profile 'nope'; expected one of: all, 3d, time"
+        );
+    }
+
+    #[test]
+    fn rejects_effect_and_profile_together() {
+        assert_eq!(
+            parse(strings(&["--effect", "orb", "--profile", "3d"]))
+                .err()
+                .unwrap()
+                .to_string(),
+            "--effect and --profile cannot be used together"
+        );
     }
 
     #[test]

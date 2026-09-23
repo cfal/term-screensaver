@@ -88,7 +88,7 @@ impl App {
     pub fn new(config: Config) -> Self {
         let seed = config.seed.unwrap_or_else(random_seed);
         let mut rng = StdRng::seed_from_u64(seed);
-        let mut bag = EffectKind::ALL.to_vec();
+        let mut bag = config.profile().effects().to_vec();
         bag.shuffle(&mut rng);
         let current_kind = config
             .effect
@@ -147,7 +147,7 @@ impl App {
             return kind;
         }
         if self.bag.is_empty() {
-            self.bag.extend_from_slice(EffectKind::ALL);
+            self.bag.extend_from_slice(self.config.profile().effects());
             self.bag.shuffle(&mut self.rng);
             if self.bag.len() > 1 && self.bag.last() == Some(&self.current_kind) {
                 let last = self.bag.len() - 1;
@@ -243,6 +243,7 @@ fn draw_help(canvas: &mut Canvas, colored: bool) {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::profile::Profile;
 
     #[test]
     fn pinned_effect_regenerates_without_changing_kind() {
@@ -256,6 +257,37 @@ mod tests {
         app.next_scene();
         assert_eq!(app.current_kind, EffectKind::Plasma);
         assert_ne!(app.scene_seed, first_seed);
+    }
+
+    #[test]
+    fn profile_rotation_stays_within_group() {
+        let mut app = App::new(Config {
+            seed: Some(23),
+            profile: Some(Profile::ThreeD),
+            ..Config::default()
+        });
+        let allowed = Profile::ThreeD.effects();
+        assert!(allowed.contains(&app.current_kind));
+        let mut previous = app.current_kind;
+        for _ in 0..allowed.len() * 3 {
+            app.next_scene();
+            assert!(allowed.contains(&app.current_kind));
+            assert_ne!(app.current_kind, previous);
+            previous = app.current_kind;
+        }
+    }
+
+    #[test]
+    fn single_effect_profile_repeats_same_kind() {
+        let mut app = App::new(Config {
+            seed: Some(7),
+            profile: Some(Profile::Time),
+            ..Config::default()
+        });
+        for _ in 0..4 {
+            app.next_scene();
+            assert_eq!(app.current_kind, EffectKind::Clock);
+        }
     }
 
     #[test]

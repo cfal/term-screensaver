@@ -30,6 +30,7 @@ Useful options:
 --interval 20
 --seed 42
 --effect orb
+--profile 3d
 --color auto|always|never
 --ascii
 --list
