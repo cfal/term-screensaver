@@ -1,3 +1,4 @@
+mod curves;
 mod fractal;
 mod orb;
 mod plasma;
@@ -18,6 +19,9 @@ pub enum EffectKind {
     Fractal,
     Donut,
     Wireframe,
+    Tesseract,
+    Knot,
+    Helix,
     Glyphs,
     Clock,
     Starfield,
@@ -30,6 +34,9 @@ impl EffectKind {
         Self::Fractal,
         Self::Donut,
         Self::Wireframe,
+        Self::Tesseract,
+        Self::Knot,
+        Self::Helix,
         Self::Glyphs,
         Self::Clock,
         Self::Starfield,
@@ -42,6 +49,9 @@ impl EffectKind {
             Self::Fractal => "fractal",
             Self::Donut => "donut",
             Self::Wireframe => "wireframe",
+            Self::Tesseract => "tesseract",
+            Self::Knot => "knot",
+            Self::Helix => "helix",
             Self::Glyphs => "glyphs",
             Self::Clock => "clock",
             Self::Starfield => "starfield",
@@ -62,6 +72,9 @@ impl EffectKind {
             Self::Fractal => Box::new(fractal::Fractal::new(seed)),
             Self::Donut => Box::new(solids::Donut::new(seed)),
             Self::Wireframe => Box::new(solids::Wireframe::new(seed)),
+            Self::Tesseract => Box::new(solids::Tesseract::new(seed)),
+            Self::Knot => Box::new(curves::Knot::new(seed)),
+            Self::Helix => Box::new(curves::Helix::new(seed)),
             Self::Glyphs => Box::new(text::GlyphSpin::new(seed)),
             Self::Clock => Box::new(text::Clock::new(seed)),
             Self::Starfield => Box::new(starfield::Starfield::new(seed)),

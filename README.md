@@ -9,6 +9,7 @@ output for smooth, low-flicker animation.
 - A luminous, shaded energy orb with rotating surface filaments and sparks
 - Animated Mandelbrot and Julia fractals
 - A shaded spinning donut and rotating wireframe solids
+- A 4D tesseract tumbling through hyperspace, a shaded torus knot, and a DNA double helix
 - Tumbling 5x7 glyphs cycling through `A-Z` and `0-9`
 - The current `HH:MM` time as a rotating panel, orbiting clocks, or a twisted ribbon
 - A warp-speed starfield

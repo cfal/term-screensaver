@@ -89,6 +89,46 @@ impl Mul<f64> for Vec3 {
     }
 }
 
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+pub struct Vec4 {
+    pub x: f64,
+    pub y: f64,
+    pub z: f64,
+    pub w: f64,
+}
+
+impl Vec4 {
+    pub const fn new(x: f64, y: f64, z: f64, w: f64) -> Self {
+        Self { x, y, z, w }
+    }
+
+    pub fn rotate_xw(self, angle: f64) -> Self {
+        let (sin, cos) = angle.sin_cos();
+        Self::new(
+            self.x * cos - self.w * sin,
+            self.y,
+            self.z,
+            self.x * sin + self.w * cos,
+        )
+    }
+
+    pub fn rotate_zw(self, angle: f64) -> Self {
+        let (sin, cos) = angle.sin_cos();
+        Self::new(
+            self.x,
+            self.y,
+            self.z * cos - self.w * sin,
+            self.z * sin + self.w * cos,
+        )
+    }
+
+    /// Perspective-project from 4D into 3D space. `distance` must exceed |w|.
+    pub fn perspective(self, distance: f64) -> Vec3 {
+        let scale = 1.0 / (distance - self.w);
+        Vec3::new(self.x * scale, self.y * scale, self.z * scale)
+    }
+}
+
 #[derive(Clone, Copy, Debug)]
 pub struct Projected {
     pub x: i32,
@@ -157,6 +197,14 @@ mod tests {
         let point = Vec3::new(1.0, 2.0, 3.0);
         let rotated = point.rotate(0.7, 1.1, -0.4);
         assert!((point.length() - rotated.length()).abs() < 1e-10);
+    }
+
+    #[test]
+    fn vec4_rotations_preserve_4d_length() {
+        let point = Vec4::new(0.3, -1.0, 0.8, -0.6);
+        let length = |v: Vec4| (v.x * v.x + v.y * v.y + v.z * v.z + v.w * v.w).sqrt();
+        let rotated = point.rotate_xw(0.9).rotate_zw(-1.3);
+        assert!((length(point) - length(rotated)).abs() < 1e-10);
     }
 
     #[test]

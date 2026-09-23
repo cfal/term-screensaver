@@ -29,7 +29,14 @@ impl Profile {
     pub fn effects(self) -> &'static [EffectKind] {
         match self {
             Self::All => EffectKind::ALL,
-            Self::ThreeD => &[EffectKind::Orb, EffectKind::Donut, EffectKind::Wireframe],
+            Self::ThreeD => &[
+                EffectKind::Orb,
+                EffectKind::Donut,
+                EffectKind::Wireframe,
+                EffectKind::Tesseract,
+                EffectKind::Knot,
+                EffectKind::Helix,
+            ],
             Self::Time => &[EffectKind::Clock],
         }
     }
