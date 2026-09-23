@@ -214,7 +214,7 @@ fn should_handle_key(key: KeyEvent) -> bool {
 
 fn draw_help(canvas: &mut Canvas, colored: bool) {
     const LINES: &[&str] = &[
-        "ASCII SCREENSAVER",
+        "TERM SCREENSAVER",
         "",
         "Space / Right  next scene",
         "r              regenerate",

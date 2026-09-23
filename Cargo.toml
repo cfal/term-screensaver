@@ -1,5 +1,5 @@
 [package]
-name = "ascii-screensaver"
+name = "term-screensaver"
 version = "0.1.0"
 edition = "2024"
 description = "A procedural terminal screensaver"

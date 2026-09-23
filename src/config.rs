@@ -3,8 +3,8 @@ use std::{fmt, time::Duration};
 use crate::{effects::EffectKind, profile::Profile};
 
 pub const HELP: &str = "\
-ascii-screensaver - procedural terminal animation\n\n\
-Usage: ascii-screensaver [OPTIONS]\n\n\
+term-screensaver - procedural terminal animation\n\n\
+Usage: term-screensaver [OPTIONS]\n\n\
 Options:\n\
   --fps <1-60>                 Frame rate [default: 30]\n\
   --interval <SECONDS>         Seconds between scenes [default: 20]\n\

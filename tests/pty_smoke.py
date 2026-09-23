@@ -76,7 +76,7 @@ def run_case(binary: pathlib.Path, stop_with_signal: bool) -> bytes:
 
 def main() -> None:
     parser = argparse.ArgumentParser()
-    parser.add_argument("binary", nargs="?", default="target/debug/ascii-screensaver")
+    parser.add_argument("binary", nargs="?", default="target/debug/term-screensaver")
     args = parser.parse_args()
     binary = pathlib.Path(args.binary).resolve()
     if not binary.is_file():

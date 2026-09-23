@@ -1,15 +1,15 @@
 use std::process::ExitCode;
 
-use ascii_screensaver::{app, config::Command, effects::EffectKind};
+use term_screensaver::{app, config::Command, effects::EffectKind};
 
 fn main() -> ExitCode {
-    match ascii_screensaver::config::parse(std::env::args().skip(1)) {
+    match term_screensaver::config::parse(std::env::args().skip(1)) {
         Ok(Command::Help) => {
-            print!("{}", ascii_screensaver::config::HELP);
+            print!("{}", term_screensaver::config::HELP);
             ExitCode::SUCCESS
         }
         Ok(Command::Version) => {
-            println!("ascii-screensaver {}", env!("CARGO_PKG_VERSION"));
+            println!("term-screensaver {}", env!("CARGO_PKG_VERSION"));
             ExitCode::SUCCESS
         }
         Ok(Command::List) => {
@@ -21,12 +21,12 @@ fn main() -> ExitCode {
         Ok(Command::Run(config)) => match app::run(config) {
             Ok(()) => ExitCode::SUCCESS,
             Err(error) => {
-                eprintln!("ascii-screensaver: {error}");
+                eprintln!("term-screensaver: {error}");
                 ExitCode::FAILURE
             }
         },
         Err(error) => {
-            eprintln!("ascii-screensaver: {error}\n\nTry --help for usage.");
+            eprintln!("term-screensaver: {error}\n\nTry --help for usage.");
             ExitCode::from(2)
         }
     }

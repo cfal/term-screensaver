@@ -1,4 +1,4 @@
-# ascii-screensaver
+# term-screensaver
 
 A procedural terminal screensaver written in Rust. It renders into an in-memory
 cell buffer, emits only changed cells, and wraps frames in synchronized ANSI
@@ -57,7 +57,7 @@ CARGO_BUILD_JOBS=1 cargo test --offline --locked
 CARGO_BUILD_JOBS=1 cargo clippy --offline --locked --all-targets -- -D warnings
 cargo fmt --check
 CARGO_BUILD_JOBS=1 cargo build --release --offline --locked
-python3 tests/pty_smoke.py target/release/ascii-screensaver
+python3 tests/pty_smoke.py target/release/term-screensaver
 ```
 
 The PTY smoke test checks resize handling and terminal restoration after normal

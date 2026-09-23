@@ -12,7 +12,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "ascii-screensaver"
+name = "term-screensaver"
 version = "0.1.0"
 dependencies = [
  "chrono",
